@@ -23,7 +23,80 @@ class DoubleConv(nn.Module):
     def forward(self, x):
         return self.double_conv(x)
 
+class AttGate(nn.Module):
 
+    def __init__(self, channels, ratio=8):
+        super().__init__()
+        self.channels = channels
+        self.att = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Linear(self.channels, self.channels // ratio),
+            nn.Linear(self.channels // ratio, self.channels)
+        )
+        self.active = nn.Sigmoid()
+
+    def forward(self, encoder, decoder):
+        encoder_feature = self.att(encoder)
+        decoder_feature = self.att(decoder)
+        att = encoder_feature + decoder_feature
+        att = self.active(att)
+        output = torch.mul(encoder, att)
+        return output
+
+
+class AttGateQuery(nn.Module):
+
+    def __init__(self, channels, ratio=8, deta=0.5):
+        super().__init__()
+        self.channels = channels
+        self.Pooling = nn.AdaptiveAvgPool3d(1)
+        self.Squeeze = nn.Linear(channels, channels // ratio)
+        self.Excite = nn.Linear(channels // ratio, channels)
+        self.register_buffer('queue', torch.rand(4))
+        # self.queue = torch.nn.Parameter(torch.rand(4))
+        self.deta = deta
+
+    def forward(self, x):
+        queue = self._excite_queue()
+        se_att = self._get_SE(x)
+        queue = self._expand_queue_to_5dim(queue, se_att)
+        queue = self._updata_queue(self.deta, se_att, queue)
+        output = self._get_att(se_att, queue)
+        self.queue = self._squeeze_queue(queue)
+        return output
+
+    def _get_SE(self, x):
+        se = self.Pooling(x)
+        se = se.view(-1, self.channels)
+        se = self.Squeeze(se)
+        se = self.Excite(se)
+        se = se.view(-1, self.channels, 1, 1, 1)
+        return se
+
+    def _get_att(self, se_att, queue):
+        att = torch.mul(se_att, queue)
+        return att
+
+    def _expand_queue_to_5dim(self, queue, se_att):
+        expanded_queue = torch.reshape(queue, (se_att.shape[0], queue.shape[0], 1, 1, 1))
+        return expanded_queue
+
+    def _updata_queue(self, deta, se_att, queue):
+        up_queue = deta * se_att + (1 - deta) * queue
+        return up_queue
+
+    def _excite_queue(self):
+        excited_queue = torch.unsqueeze(self.queue, 1)
+        excited_queue = excited_queue.repeat(1, int(self.channels / 4))
+        excited_queue = excited_queue.view(-1)
+        return excited_queue
+
+    def _squeeze_queue(self, queue):
+        queue = torch.reshape(queue, (4, -1))
+        queue = torch.mean(queue, 1)
+        return queue
+    
+    
 class SEBlock_3D(nn.Module):
 
     def __init__(self, channels, ratio=8):
