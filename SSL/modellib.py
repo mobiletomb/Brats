@@ -3,26 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class TriConv(nn.Module):
-    """(Conv3D -> BN -> ReLU) * 2"""
-
-    def __init__(self, in_channels, out_channels, num_groups=8):
-        super().__init__()
-        self.double_conv = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm3d(out_channels),
-            nn.GroupNorm(num_groups=num_groups, num_channels=out_channels),
-            nn.ReLU(inplace=True),
-
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm3d(out_channels),
-            nn.GroupNorm(num_groups=num_groups, num_channels=out_channels),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        return self.double_conv(x)
-
 class DoubleConv(nn.Module):
     """(Conv3D -> BN -> ReLU) * 2"""
 
@@ -42,6 +22,7 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.double_conv(x)
+
 
 class AttGate(nn.Module):
 
