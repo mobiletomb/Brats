@@ -53,11 +53,12 @@ class Trainer:
                  num_epochs: int,
                  path_to_csv: str,
                  display_plot: bool = False,
+                 pair_model: bool = False
                  ):
 
         """Initialization."""
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print("device:", self.device)
+        self.pair_model = pair_model
         self.display_plot = display_plot
         self.net = net
         self.net = self.net.to(self.device)
@@ -89,9 +90,15 @@ class Trainer:
     def _compute_loss_and_outputs(self,
                                   images: torch.Tensor,
                                   targets: torch.Tensor):
-        images = images.to(self.device)
-        targets = targets.to(self.device)
-        logits = self.net(images)
+        if self.pair_model:
+            imagesT1 = images[0].to(self.device)
+            imagesT2 = images[0].to(self.device)
+            targets = targets.to(self.device)
+            logits = self.net(imagesT1, imagesT2)
+        else:
+            images = images.to(self.device)
+            targets = targets.to(self.device)
+            logits = self.net(images)
         loss = self.criterion(logits, targets)
         return loss, logits
 
@@ -106,7 +113,14 @@ class Trainer:
         self.optimizer.zero_grad()
         for itr, data_batch in enumerate(dataloader):
             # print(f"start load data | time: {time.strftime('%H:%M:%S')}")
-            images, targets = data_batch['image'], data_batch['mask']
+            if self.pair_model:
+                imagesT1, targetsT1 = data_batch[0]['image'], data_batch[0]['mask']
+                imagesT2, _ = data_batch[1]['image'], data_batch[1]['mask']
+                images = zip(imagesT1, imagesT2)
+                targets = targetsT1
+            else :
+                images, targets = data_batch['image'], data_batch['mask']
+
             # print(f"start cal loss | time: {time.strftime('%H:%M:%S')}")
             loss, logits = self._compute_loss_and_outputs(images, targets)
             loss = loss / self.accumulation_steps
@@ -208,6 +222,6 @@ class Trainer:
                      ]
         pd.DataFrame(
             dict(zip(log_names, logs))
-        ).to_csv("log/train_log.csv", index=False)
+        ).to_csv(f"log/train_log_{time.strftime('%Y-:%m:%d')}.csv", index=False)
 
 

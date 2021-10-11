@@ -32,16 +32,13 @@ class AttGate(nn.Module):
         self.att = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Linear(self.channels, self.channels // ratio),
-            nn.Linear(self.channels // ratio, self.channels)
+            nn.Linear(self.channels // ratio, self.channels),
+            nn.Sigmoid()
         )
-        self.active = nn.Sigmoid()
 
-    def forward(self, encoder, decoder):
-        encoder_feature = self.att(encoder)
-        decoder_feature = self.att(decoder)
-        att = encoder_feature + decoder_feature
-        att = self.active(att)
-        output = torch.mul(encoder, att)
+    def forward(self, x):
+        att = self.att(x)
+        output = torch.mul(x, att)
         return output
 
 
@@ -303,103 +300,7 @@ class UNet3d(nn.Module):
         return mask
 
 
-class UNet3d_Att_Encoder(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels):
-        super().__init__()
-        self.in_channels = in_channels
-        self.n_classes = n_classes
-        self.n_channels = n_channels
-
-        self.conv = DoubleConv(in_channels, n_channels)
-        self.enc1 = Down(n_channels, 2 * n_channels)
-        self.enc2 = Down(2 * n_channels, 4 * n_channels)
-        self.enc3 = Down(4 * n_channels, 8 * n_channels)
-        self.enc4 = Down(8 * n_channels, 8 * n_channels)
-
-        self.dec1 = Up(16 * n_channels, 4 * n_channels)
-        self.dec2 = Up(8 * n_channels, 2 * n_channels)
-        self.dec3 = Up(4 * n_channels, n_channels)
-        self.dec4 = Up(2 * n_channels, n_channels)
-        self.out = Out(n_channels, n_classes)
-
-        self.att1 = SEBlock_3D(n_channels)
-        self.att2 = SEBlock_3D(2 * n_channels)
-        self.att3 = SEBlock_3D(4 * n_channels)
-        self.att4 = SEBlock_3D(8 * n_channels)
-
-    def forward(self, x):
-        x1 = self.conv(x)
-        # print(x1.shape)
-        att1 = self.att1(x1)
-        x2 = self.enc1(att1)
-        att2 = self.att2(x2)
-        x3 = self.enc2(att2)
-        att3 = self.att3(x3)
-        x4 = self.enc3(att3)
-        att4 = self.att4(x4)
-        x5 = self.enc4(att4)
-
-        mask = self.dec1(x5, x4)
-        mask = self.dec2(mask, x3)
-        mask = self.dec3(mask, x2)
-        mask = self.dec4(mask, x1)
-        mask = self.out(mask)
-        return mask
-
-
-class UNet3d_Att_All(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels):
-        super().__init__()
-        self.in_channels = in_channels
-        self.n_classes = n_classes
-        self.n_channels = n_channels
-
-        self.conv = DoubleConv(in_channels, n_channels)
-        self.enc1 = Down(n_channels, 2 * n_channels)
-        self.enc2 = Down(2 * n_channels, 4 * n_channels)
-        self.enc3 = Down(4 * n_channels, 8 * n_channels)
-        self.enc4 = Down(8 * n_channels, 8 * n_channels)
-
-        self.dec1 = Up(16 * n_channels, 4 * n_channels)
-        self.dec2 = Up(8 * n_channels, 2 * n_channels)
-        self.dec3 = Up(4 * n_channels, n_channels)
-        self.dec4 = Up(2 * n_channels, n_channels)
-        self.out = Out(n_channels, n_classes)
-
-        self.att1 = SEBlock_3D(n_channels)
-        self.att2 = SEBlock_3D(2 * n_channels)
-        self.att3 = SEBlock_3D(4 * n_channels)
-        self.att4 = SEBlock_3D(8 * n_channels)
-
-        self.att5 = SEBlock_3D(4 * n_channels)
-        self.att6 = SEBlock_3D(2 * n_channels)
-        self.att7 = SEBlock_3D(n_channels)
-        self.att8 = SEBlock_3D(n_channels)
-
-    def forward(self, x):
-        x1 = self.conv(x)
-        att1 = self.att1(x1)
-        x2 = self.enc1(att1)
-        att2 = self.att2(x2)
-        x3 = self.enc2(att2)
-        att3 = self.att3(x3)
-        x4 = self.enc3(att3)
-        att4 = self.att4(x4)
-        x5 = self.enc4(att4)
-
-        mask = self.dec1(x5, x4)
-        att5 = self.att5(mask)
-        mask = self.dec2(att5, x3)
-        att6 = self.att6(mask)
-        mask = self.dec3(att6, x2)
-        att7 = self.att7(mask)
-        mask = self.dec4(att7, x1)
-        att8 = self.att8(mask)
-        mask = self.out(att8)
-        return mask
-
-
-class UNet3d_queue_buffer_att(nn.Module):
+class AttUNet3d(nn.Module):
     def __init__(self, in_channels, n_classes, n_channels):
         super().__init__()
         self.in_channels = in_channels
@@ -420,8 +321,7 @@ class UNet3d_queue_buffer_att(nn.Module):
 
     def forward(self, x):
         x1 = self.conv(x)
-        att = self.query_att(x1)
-        x2 = self.enc1(att)
+        x2 = self.enc1(x1)
         x3 = self.enc2(x2)
         x4 = self.enc3(x3)
         x5 = self.enc4(x4)
@@ -433,52 +333,28 @@ class UNet3d_queue_buffer_att(nn.Module):
         mask = self.out(mask)
         return mask
 
-    def excite_att(self, in_att, dim):
-        out_att = torch.unsqueeze(in_att, 1)
-        out_att = out_att.repeat(1, int(dim)/4)
-        out_att = out_att.view(-1)
-        return out_att
 
-
-class UNet3d_queue_para_att(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels):
+class Double_Path_UNet3D(nn.Module):
+    def __init__(self, in_channels, n_classes, n_channels, get_pair_feature=False):
         super().__init__()
         self.in_channels = in_channels
         self.n_classes = n_classes
         self.n_channels = n_channels
+        self.get_pair_feature = get_pair_feature
 
-        self.conv = DoubleConv(in_channels, n_channels)
-        self.enc1 = Down(n_channels, 2 * n_channels)
-        self.enc2 = Down(2 * n_channels, 4 * n_channels)
-        self.enc3 = Down(4 * n_channels, 8 * n_channels)
-        self.enc4 = Down(8 * n_channels, 8 * n_channels)
+        self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels//2)
+        self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels//2)
+        self.out = Out
 
-        self.dec1 = Up(16 * n_channels, 4 * n_channels)
-        self.dec2 = Up(8 * n_channels, 2 * n_channels)
-        self.dec3 = Up(4 * n_channels, n_channels)
-        self.dec4 = Up(2 * n_channels, n_channels)
-        self.out = Out(n_channels, n_classes)
-
-    def forward(self, x):
-        x1 = self.conv(x)
-        att = self.query_att(x1)
-        x2 = self.enc1(att)
-        x3 = self.enc2(x2)
-        x4 = self.enc3(x3)
-        x5 = self.enc4(x4)
-
-        mask = self.dec1(x5, x4)
-        mask = self.dec2(mask, x3)
-        mask = self.dec3(mask, x2)
-        mask = self.dec4(mask, x1)
-        mask = self.out(mask)
-        return mask
-
-    def excite_att(self, in_att, dim):
-        out_att = torch.unsqueeze(in_att, 1)
-        out_att = out_att.repeat(1, int(dim)/4)
-        out_att = out_att.view(-1)
-        return out_att
+    def forward(self, t1_Pair, t2_Pair):
+        t1_Feature = self.modelT1(t1_Pair)
+        t2_Feature = self.modelT2(t2_Pair)
+        merged_Feature = torch.cat((t1_Feature, t2_Feature), dim=1)
+        out = self.out(merged_Feature)
+        if self.get_pair_feature:
+            return out, t1_Feature, t2_Feature
+        else:
+            return out
 
 
 if __name__ == '__main__':

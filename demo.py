@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import einops
 import csv
-
+import glob
 
 class LinearModel(nn.Module):
     def __init__(self):
@@ -39,24 +39,26 @@ if __name__ == '__main__':
             para.requires_grad = False
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=0.9)
+    #
+    #
+    # for i in range(2):
+    #     for batch_ndx, sample in enumerate(loader):
+    #         for name, para in model.named_parameters():
+    #             if name == 'fc1.weight':
+    #                 print('fc1:{}'.format(para))
+    #             # if name == 'fc2.weight':
+    #             #     print('fc2:{}'.format(para))
+    #         # print(query)
+    #         optimizer.zero_grad()
+    #         inps = sample[0].to(device)
+    #         targets = sample[1].to(device)
+    #         log = model(inps)
+    #         # log = torch.multiply(log, query)
+    #         loss = F.binary_cross_entropy_with_logits(log, targets)
+    #         loss.backward()
+    #         optimizer.step()
 
 
-    for i in range(2):
-        for batch_ndx, sample in enumerate(loader):
-            for name, para in model.named_parameters():
-                if name == 'fc1.weight':
-                    print('fc1:{}'.format(para))
-                # if name == 'fc2.weight':
-                #     print('fc2:{}'.format(para))
-            # print(query)
-            optimizer.zero_grad()
-            inps = sample[0].to(device)
-            targets = sample[1].to(device)
-            log = model(inps)
-            # log = torch.multiply(log, query)
-            loss = F.binary_cross_entropy_with_logits(log, targets)
-            loss.backward()
-            optimizer.step()
 
 
 

@@ -6,9 +6,8 @@ import pandas as pd
 from data import BratsDataset
 
 # model = modellib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
-# model = modellib.UNet3d_Att_Encoder(in_channels=4, n_classes=3, n_channels=24).to('cuda')
-model = modellib.UNet3d_Att_All(in_channels=4, n_classes=3, n_channels=24).to('cuda')
-# model = modellib.UNet3d_query_att(in_channels=4, n_classes=3, n_channels=24).to('cuda')
+model = modellib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
+
 trainer = trainer.Trainer(net=model,
                           dataset=BratsDataset,
                           criterion=metircs_losses.BCEDiceLoss(),
