@@ -70,12 +70,17 @@ train_data.to_csv('log/train_data.csv', index=False)
 
 
 class BratsDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, phase: str='test', is_resize: bool=False):
-        self.df = df
+    def __init__(self, df: pd.DataFrame, phase: str='test', is_resize: bool=False, with_drop: bool=False, frac=0.2):
+        if self.with_drop:
+            self.df = df.sample(frac=self.frac).sort_index()
+        else:
+            self.df = df
         self.phase = phase
         self.augmentations = get_augmentations(phase)
         self.data_types = ['_flair.nii.gz', '_t1.nii.gz', '_t1ce.nii.gz', '_t2.nii.gz']
         self.is_resize = is_resize
+        self.with_drop = with_drop
+        self.frac = frac
 
     def __len__(self):
         return self.df.shape[0]
