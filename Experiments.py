@@ -1,7 +1,7 @@
 import torch
 import metircs_losses
 import data
-import modellib
+import SSL.modellib as modelib
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -128,6 +128,65 @@ if __name__ == '__main__':
     #
     # fig.savefig('result1.png', format='png', pad_inches=0.2, transparent=False,
     #             bbox_inches='tight')
+
+    def compute_results(model,
+                    dataloader,
+                    treshold=0.33):
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    results = {"Id": [], "image": [], "GT": [], "Prediction": []}
+
+    with torch.no_grad():
+        for i, data in enumerate(dataloader):
+            id_, imgs, targets = data['Id'], data['image'], data['mask']
+            imgs, targets = imgs.to(device), targets.to(device)
+            logits = model(imgs)
+            probs = torch.sigmoid(logits)
+
+            predictions = (probs >= treshold).float()
+            predictions = predictions.cpu()
+            targets = targets.cpu()
+
+            results["Id"].append(id_)
+            results["image"].append(imgs.cpu())
+            results["GT"].append(targets)
+            results["Prediction"].append(predictions)
+
+            # only 5 pars
+            if (i > 5):
+                return results
+        return results
+
+    % % time
+    results = compute_results(
+        nodel, val_dataloader, 0.33)
+
+    for id_, img, gt, prediction in zip(results['Id'][4:],
+                                        results['image'][4:],
+                                        results['GT'][4:],
+                                        results['Prediction'][4:]
+                                        ):
+        print(id_)
+        break
+
+        convert
+        3
+        d
+        to
+        2
+        d
+        ground
+        truth and prediction
+
+        show_result = ShowResult()
+        show_result.plot(img, gt, prediction)
+
+        3
+        d
+        binary
+        mask
+        projection
+        for ground truth and prediction
 
 
 

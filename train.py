@@ -1,12 +1,12 @@
 import trainer
-import modellib
+import SSL.modellib as modelib
 import config
 import metircs_losses
 import pandas as pd
 from data import BratsDataset
 
 # model = modellib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
-model = modellib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
+model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 
 trainer = trainer.Trainer(net=model,
                           dataset=BratsDataset,
