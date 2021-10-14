@@ -16,7 +16,8 @@ trainer = trainer.Trainer(net=model,
                           batch_size=1,
                           fold=0,
                           num_epochs=50,
-                          path_to_csv=config.config.path_to_csv)
+                          path_to_csv=config.config.path_to_csv,
+                          pair_model=True)
 
 
 if __name__ == '__main__':

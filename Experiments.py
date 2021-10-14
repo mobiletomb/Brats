@@ -1,7 +1,7 @@
 import torch
 import metircs_losses
 import data
-import SSL.modellib as modelib
+import SSL.modellib as modellib
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt

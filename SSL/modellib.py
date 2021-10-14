@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import data
 
 
 class DoubleConv(nn.Module):
     """(Conv3D -> BN -> ReLU) * 2"""
 
-    def __init__(self, in_channels, out_channels, num_groups=8):
+    def __init__(self, in_channels, out_channels, num_groups=2):
         super().__init__()
         self.double_conv = nn.Sequential(
             nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
@@ -173,8 +174,9 @@ class Out(nn.Module):
 
 
 class UNet3d(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels):
+    def __init__(self, in_channels, n_classes, n_channels, drop_outlayer: bool=False):
         super().__init__()
+        self.drop_outlayer = drop_outlayer
         self.in_channels = in_channels
         self.n_classes = n_classes
         self.n_channels = n_channels
@@ -202,8 +204,11 @@ class UNet3d(nn.Module):
         mask = self.dec2(mask, x3)
         mask = self.dec3(mask, x2)
         mask = self.dec4(mask, x1)
-        mask = self.out(mask)
-        return mask
+        if self.drop_outlayer:
+            return mask
+        else:
+            mask = self.out(mask)
+            return mask
 
 
 class AttUNet3d(nn.Module):
@@ -248,9 +253,9 @@ class Double_Path_UNet3D(nn.Module):
         self.n_channels = n_channels
         self.get_pair_feature = get_pair_feature
 
-        self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels//2)
-        self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels//2)
-        self.out = Out
+        self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
+        self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
+        self.out = Out(n_channels * 2, n_classes)
 
     def forward(self, t1_Pair, t2_Pair):
         t1_Feature = self.modelT1(t1_Pair)
@@ -264,8 +269,15 @@ class Double_Path_UNet3D(nn.Module):
 
 
 if __name__ == '__main__':
-    input = torch.randn(1, 4, 256, 256, 256)
-    output = DoubleConv(4, 24)(input)
-    output = SEBlock_3D(channels=24)(output)
-    # output = output.detach().numpy()
-    # print(output)
+    model = Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24)
+
+    dataloader = data.get_dataloader(dataset=data.BratsDataset, path_to_csv='/home/qlc/Model/BraTs/log/train_data.csv', phase='train', fold=0,
+                                        all_sequence=False)
+    print(len(dataloader))
+
+    data = next(iter(dataloader))
+    print(data['Id'], data['image_t1'].shape, data['image_t2'].shape, data['mask'].shape)
+    out = model(data['image_t1'], data['image_t2'])
+    print(out)
+
+

@@ -60,8 +60,7 @@ class Trainer:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.pair_model = pair_model
         self.display_plot = display_plot
-        self.net = net
-        self.net = self.net.to(self.device)
+        self.net = net.to(self.device)
         self.criterion = criterion
         self.optimizer = Adam(self.net.parameters(), lr=lr)
         self.scheduler = ReduceLROnPlateau(self.optimizer, mode="min",
@@ -77,7 +76,8 @@ class Trainer:
                 phase=phase,
                 fold=fold,
                 batch_size=batch_size,
-                num_workers=8
+                num_workers=8,
+                all_sequence=(not self.pair_model)
             )
             for phase in self.phases
         }
@@ -91,8 +91,9 @@ class Trainer:
                                   images: torch.Tensor,
                                   targets: torch.Tensor):
         if self.pair_model:
-            imagesT1 = images[0].to(self.device)
-            imagesT2 = images[0].to(self.device)
+            imagesT1 = images['image_t1'].to(self.device)
+            imagesT2 = images['image_t2'].to(self.device)
+            print(imagesT2.shape)
             targets = targets.to(self.device)
             logits = self.net(imagesT1, imagesT2)
         else:
@@ -114,10 +115,8 @@ class Trainer:
         for itr, data_batch in enumerate(dataloader):
             # print(f"start load data | time: {time.strftime('%H:%M:%S')}")
             if self.pair_model:
-                imagesT1, targetsT1 = data_batch[0]['image'], data_batch[0]['mask']
-                imagesT2, _ = data_batch[1]['image'], data_batch[1]['mask']
-                images = zip(imagesT1, imagesT2)
-                targets = targetsT1
+                # images_t1, images_t2, targets = data_batch['image_t1'], data_batch['image_t2'], data_batch['mask']
+                images, targets = data_batch, data_batch['mask']
             else :
                 images, targets = data_batch['image'], data_batch['mask']
 
