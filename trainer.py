@@ -93,7 +93,6 @@ class Trainer:
         if self.pair_model:
             imagesT1 = images['image_t1'].to(self.device)
             imagesT2 = images['image_t2'].to(self.device)
-            print(imagesT2.shape)
             targets = targets.to(self.device)
             logits = self.net(imagesT1, imagesT2)
         else:

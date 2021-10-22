@@ -167,9 +167,12 @@ class AttUp(nn.Module):
 class Out(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+        # self.conv1 = DoubleConv(in_channels, in_channels // 2)
+        # one layer out
+        self.conv = nn.Conv3d(in_channels // 2, out_channels, kernel_size=1)
 
     def forward(self, x):
+        # x = self.conv1(x)
         return self.conv(x)
 
 
@@ -248,24 +251,71 @@ class AttUNet3d(nn.Module):
 class Double_Path_UNet3D(nn.Module):
     def __init__(self, in_channels, n_classes, n_channels, get_pair_feature=False):
         super().__init__()
-        self.in_channels = in_channels
         self.n_classes = n_classes
-        self.n_channels = n_channels
         self.get_pair_feature = get_pair_feature
+        self.paired_channels = in_channels // 2
+        self.paired_nchannels = n_channels // 2
 
-        self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
-        self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
-        self.out = Out(n_channels * 2, n_classes)
+        # self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
+        # self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
+        # self.out = Out(n_channels * 2, n_classes)
+
+        self.conv_t1 = DoubleConv(self.paired_channels, self.paired_nchannels)
+        self.enc1_t1 = Down(self.paired_nchannels, 2 * self.paired_nchannels)
+        self.enc2_t1 = Down(2 * self.paired_nchannels, 4 * self.paired_nchannels)
+        self.enc3_t1 = Down(4 * self.paired_nchannels, 8 * self.paired_nchannels)
+        self.enc4_t1 = Down(8 * self.paired_nchannels, 8 * self.paired_nchannels)
+
+        self.conv_t2 = DoubleConv(self.paired_channels, self.paired_nchannels)
+        self.enc1_t2 = Down(self.paired_nchannels, 2 * self.paired_nchannels)
+        self.enc2_t2 = Down(2 * self.paired_nchannels, 4 * self.paired_nchannels)
+        self.enc3_t2 = Down(4 * self.paired_nchannels, 8 * self.paired_nchannels)
+        self.enc4_t2 = Down(8 * self.paired_nchannels, 8 * self.paired_nchannels)
+
+        self.dec1 = Up(16 * n_channels, 4 * n_channels)
+        self.dec2 = Up(8 * n_channels, 2 * n_channels)
+        self.dec3 = Up(4 * n_channels, n_channels)
+        self.dec4 = Up(2 * n_channels, n_channels)
+        self.out = Out(n_channels, n_classes)
 
     def forward(self, t1_Pair, t2_Pair):
-        t1_Feature = self.modelT1(t1_Pair)
-        t2_Feature = self.modelT2(t2_Pair)
-        merged_Feature = torch.cat((t1_Feature, t2_Feature), dim=1)
-        out = self.out(merged_Feature)
+        # t1_Feature = self.modelT1(t1_Pair)
+        # t2_Feature = self.modelT2(t2_Pair)
+        # merged_Feature = torch.cat((t1_Feature, t2_Feature), dim=1)
+        # out = self.out(merged_Feature)
+        t1_en1 = self.conv(t1_Pair)
+        t1_en2 = self.enc1(t1_en1)
+        t1_en3 = self.enc2(t1_en2)
+        t1_en4 = self.enc3(t1_en3)
+        t1_en5 = self.enc4(t1_en4)
+
+        t2_en1 = self.conv(t2_Pair)
+        t2_en2 = self.enc1(t2_en1)
+        t2_en3 = self.enc2(t2_en2)
+        t2_en4 = self.enc3(t2_en3)
+        t2_en5 = self.enc4(t2_en4)
+
+        en1 = torch.cat((t1_en1, t2_en1), dim=1)
+        en2 = torch.cat((t1_en2, t2_en2), dim=1)
+        en3 = torch.cat((t1_en3, t2_en3), dim=1)
+        en4 = torch.cat((t1_en4, t2_en4), dim=1)
+        en5 = torch.cat((t1_en5, t2_en5), dim=1)
+
+        mask = self.dec1(en5, en4)
+        mask = self.dec2(mask, en3)
+        mask = self.dec3(mask, en2)
+        mask = self.dec4(mask, en1)
+
+        out = self.out(mask)
+
         if self.get_pair_feature:
-            return out, t1_Feature, t2_Feature
+            return out
         else:
             return out
+
+    def _cal_EMA(x1, x2, gama):
+        return x1 + torch.mul(x2, gama)
+
 
 
 if __name__ == '__main__':

@@ -5,6 +5,15 @@ import torch.nn.functional as F
 import einops
 import csv
 import glob
+import argparse
+
+parser = argparse.ArgumentParser(description='Brats')
+parser.add_argument('-m', '--Model', default='UNet3d', type=str,
+                    help='model name')
+parser.add_argument('--PairModel', default=False, type=bool,
+                    help='whether use paired data structure')
+
+args = parser.parse_args()
 
 class LinearModel(nn.Module):
     def __init__(self):
@@ -17,28 +26,53 @@ class LinearModel(nn.Module):
         out = self.fc2(out)
         return out
 
+class LinearKernelCKA():
+    def __init__(self):
+
+    def _get_HSIC(self, x, y):
+        x = self._build_Linear_Kernel(x)
+        y = self._build_Linear_Kernel(y)
+        cm = self._build_CM(dim)
+        tr = torch.trace(x*cm*y*cm)
+        return torch.mul(tr, 1 / torch.square((dim - 1)))
+    def _build_CM(self, dim):
+        i = torch.eye(dim)
+        ones = torch.ones((dim, dim))
+        return i - i * torch.mul(ones, 1./dim)
+
+    def _get_CKA(self):
+        hsic_xy = self._get_HSIC(x, y)
+        hsic_xx = self._get_HSIC(x, x)
+        hsic_yy = self._get_HSIC(y, y)
+        return hsic_xy / torch.sqrt(hsic_xx * hsic_yy)
+
+    def _build_Linear_Kernel(self,x):
+        K = torch.matmul(x.T, x)
+        return K
+
 
 if __name__ == '__main__':
+    print(args.m)
     # inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
     # tgts = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-    inps = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
-    tgts = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
-    dataset = TensorDataset(inps, tgts)
-    loader = DataLoader(dataset,
-                        batch_size=5,
-                        pin_memory=True,
-                        num_workers=2)
-
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    model = LinearModel()
-    model.to(device)
-    # query = torch.autograd.Variable(torch.ones(1, 5), requires_grad=True).to(device)
-    for name, para in model.named_parameters():
-        if name == 'fc1.weight':
-            para.requires_grad = False
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=0.9)
+    # inps = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
+    # tgts = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
+    # dataset = TensorDataset(inps, tgts)
+    # loader = DataLoader(dataset,
+    #                     batch_size=5,
+    #                     pin_memory=True,
+    #                     num_workers=2)
+    #
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #
+    # model = LinearModel()
+    # model.to(device)
+    # # query = torch.autograd.Variable(torch.ones(1, 5), requires_grad=True).to(device)
+    # for name, para in model.named_parameters():
+    #     if name == 'fc1.weight':
+    #         para.requires_grad = False
+    #
+    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=0.9)
     #
     #
     # for i in range(2):
