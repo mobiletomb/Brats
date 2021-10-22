@@ -9,6 +9,7 @@ from data import BratsDataset
 model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 
 trainer = trainer.Trainer(net=model,
+                          model_name='asdf',
                           dataset=BratsDataset,
                           criterion=metircs_losses.BCEDiceLoss(),
                           lr=5e-4,

@@ -86,6 +86,9 @@ class Trainer:
         self.dice_scores = {phase: [] for phase in self.phases}
         self.jaccard_scores = {phase: [] for phase in self.phases}
         self.summaryWriter = SummaryWriter('./tensorboard--logdir/')
+        # self.best_model_path = f"best_model{}.pth"
+        # self.last_epoch_model_path = f"last_model{}.pth"
+        # self.best_model_path = f"log/train_log_{}.csv"
 
     def _compute_loss_and_outputs(self,
                                   images: torch.Tensor,
