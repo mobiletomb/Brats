@@ -21,54 +21,6 @@ from config import *
 
 from einops import rearrange
 
-######################################################
-#               Data preprocessing                   #
-######################################################
-
-survival_info_df = pd.read_csv('/home/qlc/dataset/BraTs2020/MICCAI_BraTS2020_TrainingData/survival_info.csv')
-name_mapping_df = pd.read_csv('/home/qlc/dataset/BraTs2020/MICCAI_BraTS2020_TrainingData/name_mapping.csv')
-
-
-name_mapping_df.rename({'BraTS_2020_subject_ID': 'Brats20ID'}, axis=1, inplace=True)
-df = survival_info_df.merge(name_mapping_df, on='Brats20ID', how='right')
-
-paths = []
-for _, row in df.iterrows():
-    id_ = row['Brats20ID']
-    phase = id_.split('_')[-2]
-
-    if phase == 'Training':
-        path = os.path.join(config.train_root_dir, id_)
-    else:
-        path = os.path.join(config.test_root_dir, id_)
-
-    paths.append(path)
-
-df['path'] = paths
-
-train_data = df.loc[df['Age'].notnull()].reset_index(drop=True)
-train_data['Age_rank'] = train_data['Age'] // 10 * 10
-
-train_data = train_data.loc[train_data['Brats20ID'] != 'Brats20_Training_355'].reset_index(drop=True,)
-
-skf = StratifiedKFold(n_splits=7, random_state=config.seed, shuffle=True)
-
-for i, (train_index, val_index) in enumerate(skf.split(train_data, train_data['Age_rank'])):
-    train_data.loc[val_index, 'fold'] = i
-
-train_df = train_data.loc[train_data['fold'] != 0].reset_index(drop=True)
-val_df = train_data.loc[train_data['fold'] == 0].reset_index(drop=True)
-
-test_df = df.loc[~df['Age'].notnull()].reset_index(drop=True)
-# print('train_df:', train_df.shape, 'val_df:', val_df.shape, 'test_df:', test_df.shape)
-
-# train_data.to_csv('log/train_data.csv', index=False)
-
-######################################################
-#               Dataset DataLoader                   #
-######################################################
-
-
 class BratsDataset(Dataset):
     def __init__(self,
                  df: pd.DataFrame,
@@ -245,8 +197,6 @@ def get_dataloader(
         shuffle=True,
     )
     return dataloader
-
-
 
 
 if __name__ == '__main__':

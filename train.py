@@ -25,6 +25,8 @@ import argparse
 # elif model_name == 'Double_path_Unet3D':
 #     model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 #     args.PairModel = True
+
+
 model = modelib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 
 trainer = trainer.Trainer(net=model,

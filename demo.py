@@ -15,6 +15,7 @@ parser.add_argument('--PairModel', default=False, type=bool,
 
 args = parser.parse_args()
 
+
 class LinearModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -26,24 +27,29 @@ class LinearModel(nn.Module):
         out = self.fc2(out)
         return out
 
+
 class LinearKernelCKA():
-    def __init__(self):
+    def __init__(self, x, y):
+        self.dim = x.shape[-1]
+        self.x = x
+        self.y = y
 
     def _get_HSIC(self, x, y):
         x = self._build_Linear_Kernel(x)
         y = self._build_Linear_Kernel(y)
-        cm = self._build_CM(dim)
+        cm = self._build_CM(self.dim)
         tr = torch.trace(x*cm*y*cm)
-        return torch.mul(tr, 1 / torch.square((dim - 1)))
+        return torch.mul(tr, 1 / torch.square((self.dim - 1)))
+
     def _build_CM(self, dim):
         i = torch.eye(dim)
         ones = torch.ones((dim, dim))
         return i - i * torch.mul(ones, 1./dim)
 
     def _get_CKA(self):
-        hsic_xy = self._get_HSIC(x, y)
-        hsic_xx = self._get_HSIC(x, x)
-        hsic_yy = self._get_HSIC(y, y)
+        hsic_xy = self._get_HSIC(self.x, self.y)
+        hsic_xx = self._get_HSIC(self.x, self.x)
+        hsic_yy = self._get_HSIC(self.y, self.y)
         return hsic_xy / torch.sqrt(hsic_xx * hsic_yy)
 
     def _build_Linear_Kernel(self,x):
