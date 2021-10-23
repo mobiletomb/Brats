@@ -28,6 +28,7 @@ import argparse
 model = modelib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 
 trainer = trainer.Trainer(net=model,
+                          model_name='asdf',
                           dataset=BratsDataset,
                           criterion=metircs_losses.BCEDiceLoss(),
                           lr=5e-4,
