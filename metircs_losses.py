@@ -18,16 +18,12 @@ def dice_coef_metric(probabilities: torch.Tensor,
     """
     scores = []
     num = probabilities.shape[0]
-    torch.save(probabilities, 'prob.pth')
-    torch.save(truth, 'truth.pth')
     predictions = (probabilities >= treshold).float()
-    torch.save(predictions, 'predictions.pth')
     assert (predictions.shape == truth.shape)
     for i in range(num):
         prediction = predictions[i]
         truth_ = truth[i]
         intersection = 2.0 * (truth_ * prediction).sum()
-        torch.save(truth_ * prediction, 'mul.pth')
         union = truth_.sum() + prediction.sum()
         if truth_.sum() == 0 and prediction.sum() == 0:
             scores.append(1.0)
@@ -80,7 +76,6 @@ class Meter:
         calculates dice and iou scores, and stores them in lists.
         """
         probs = torch.sigmoid(logits)
-        print("probs.shape:{}".format(probs.shape))
         dice = dice_coef_metric(probs, targets, self.threshold)
         iou = jaccard_coef_metric(probs, targets, self.threshold)
 

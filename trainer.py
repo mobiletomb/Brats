@@ -54,7 +54,7 @@ class Trainer:
                  path_to_csv: str,
                  display_plot: bool = False,
                  pair_model: bool = False,
-                 model_name: str = 'Unet'
+                 model_name: str = 'Unet3d'
                  ):
 
         """Initialization."""
@@ -122,7 +122,6 @@ class Trainer:
                 images, targets = data_batch, data_batch['mask']
             else :
                 images, targets = data_batch['image'], data_batch['mask']
-                print("targets.shape:{}".format(targets.shape))
 
             # print(f"start cal loss | time: {time.strftime('%H:%M:%S')}")
             loss, logits = self._compute_loss_and_outputs(images, targets)
