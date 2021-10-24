@@ -53,7 +53,8 @@ class Trainer:
                  num_epochs: int,
                  path_to_csv: str,
                  display_plot: bool = False,
-                 pair_model: bool = False
+                 pair_model: bool = False,
+                 model_name: str = 'Unet'
                  ):
 
         """Initialization."""
@@ -85,10 +86,10 @@ class Trainer:
         self.losses = {phase: [] for phase in self.phases}
         self.dice_scores = {phase: [] for phase in self.phases}
         self.jaccard_scores = {phase: [] for phase in self.phases}
-        self.summaryWriter = SummaryWriter('./tensorboard--logdir/')
-        # self.best_model_path = f"best_model{}.pth"
-        # self.last_epoch_model_path = f"last_model{}.pth"
-        # self.best_model_path = f"log/train_log_{}.csv"
+        self.summaryWriter = SummaryWriter(f'./tensorboard__logdir/{model_name}/')
+        self.best_model_pth = f"best_model_{model_name}.pth"
+        self.last_epoch_model_pth = f"last_epoch_model_{model_name}_{time.strftime('%m_%d_%H_%M')}.pth"
+        self.log_pth = f"log/train_log_{model_name}_{time.strftime('%m_%d_%H_%M')}.csv"
 
     def _compute_loss_and_outputs(self,
                                   images: torch.Tensor,
@@ -121,6 +122,7 @@ class Trainer:
                 images, targets = data_batch, data_batch['mask']
             else :
                 images, targets = data_batch['image'], data_batch['mask']
+                print("targets.shape:{}".format(targets.shape))
 
             # print(f"start cal loss | time: {time.strftime('%H:%M:%S')}")
             loss, logits = self._compute_loss_and_outputs(images, targets)
@@ -165,7 +167,7 @@ class Trainer:
             if val_loss < self.best_loss:
                 print(f"\n{'#' * 20}\nSaved new checkpoint\n{'#' * 20}\n")
                 self.best_loss = val_loss
-                torch.save(self.net.state_dict(), f"best_model_{time.strftime('%Y-:%m:%d')}.pth")
+                torch.save(self.net.state_dict(), self.best_model_pth)
             print()
         self._save_train_history()
 
@@ -210,7 +212,7 @@ class Trainer:
     def _save_train_history(self):
         """writing model weights and training logs to files."""
         torch.save(self.net.state_dict(),
-                   f"last_epoch_model_{time.strftime('%Y-:%m:%d')}.pth")
+                   self.last_epoch_model_pth)
 
         logs_ = [self.losses, self.dice_scores, self.jaccard_scores]
 
@@ -223,6 +225,6 @@ class Trainer:
                      ]
         pd.DataFrame(
             dict(zip(log_names, logs))
-        ).to_csv(f"log/train_log_{time.strftime('%Y-:%m:%d')}.csv", index=False)
+        ).to_csv(self.log_pth, index=False)
 
 

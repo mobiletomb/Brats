@@ -169,7 +169,7 @@ class Out(nn.Module):
         super().__init__()
         # self.conv1 = DoubleConv(in_channels, in_channels // 2)
         # one layer out
-        self.conv = nn.Conv3d(in_channels // 2, out_channels, kernel_size=1)
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
         # x = self.conv1(x)
