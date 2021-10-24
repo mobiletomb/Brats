@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import tqdm
 from skimage.util import montage
 from sklearn.model_selection import StratifiedKFold
+import nibabel as nib
 
 
 class Image3dToGIF3d:
@@ -241,6 +242,7 @@ def get_all_csv_file(root: str) -> list:
     print(f"Extracted {len(ids)} csv files.")
     return ids
 
+
 def sample():
     sample_filename2 = '../input/brats20-dataset-training-validation/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData/BraTS20_Training_001/BraTS20_Training_001_t1.nii'
     sample_img2 = nib.load(sample_filename2)
@@ -271,6 +273,8 @@ def sample():
     mask_ET[mask_ET == 1] = 0
     mask_ET[mask_ET == 2] = 0
     mask_ET[mask_ET == 4] = 1
+    return sample_img2
+
 
 def show_data():
     fig = plt.figure(figsize=(20, 10))
@@ -325,6 +329,7 @@ def show_data():
     fig.savefig("data_sample.png", format="png", pad_inches=0.2, transparent=False, bbox_inches='tight')
     fig.savefig("data_sample.svg", format="svg", pad_inches=0.2, transparent=False, bbox_inches='tight')
 
+
 def get_train_csv():
     survival_info_df = pd.read_csv('/home/qlc/dataset/BraTs2020/MICCAI_BraTS2020_TrainingData/survival_info.csv')
     name_mapping_df = pd.read_csv('/home/qlc/dataset/BraTs2020/MICCAI_BraTS2020_TrainingData/name_mapping.csv')
@@ -338,9 +343,9 @@ def get_train_csv():
         phase = id_.split('_')[-2]
 
         if phase == 'Training':
-            path = os.path.join(config.train_root_dir, id_)
+            path = os.path.join(config.config.train_root_dir, id_)
         else:
-            path = os.path.join(config.test_root_dir, id_)
+            path = os.path.join(config.config.test_root_dir, id_)
 
         paths.append(path)
 
@@ -351,7 +356,7 @@ def get_train_csv():
 
     train_data = train_data.loc[train_data['Brats20ID'] != 'Brats20_Training_355'].reset_index(drop=True, )
 
-    skf = StratifiedKFold(n_splits=7, random_state=config.seed, shuffle=True)
+    skf = StratifiedKFold(n_splits=7, random_state=config.config.seed, shuffle=True)
 
     for i, (train_index, val_index) in enumerate(skf.split(train_data, train_data['Age_rank'])):
         train_data.loc[val_index, 'fold'] = i
@@ -360,8 +365,8 @@ def get_train_csv():
     val_df = train_data.loc[train_data['fold'] == 0].reset_index(drop=True)
 
     test_df = df.loc[~df['Age'].notnull()].reset_index(drop=True)
-    # print('train_df:', train_df.shape, 'val_df:', val_df.shape, 'test_df:', test_df.shape)
+    print('train_df:', train_df.shape, 'val_df:', val_df.shape, 'test_df:', test_df.shape)
 
-    # train_data.to_csv('log/train_data.csv', index=False)
+    train_data.to_csv('log/train_data.csv', index=False)
 
 # csv_paths = get_all_csv_file("../input/brats20-dataset-training-validation/BraTS2020_TrainingData")

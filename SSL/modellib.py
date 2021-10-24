@@ -249,12 +249,16 @@ class AttUNet3d(nn.Module):
 
 
 class Double_Path_UNet3D(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels, get_pair_feature=False):
+    def __init__(self, in_channels, n_classes, n_channels, get_pair_feature=False, gamma=0.5):
         super().__init__()
         self.n_classes = n_classes
         self.get_pair_feature = get_pair_feature
         self.paired_channels = in_channels // 2
         self.paired_nchannels = n_channels // 2
+        self.gamma = gamma
+        self.mid_feature = []
+        self.t1_feature = []
+        self.t2_feature = []
 
         # self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
         # self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
@@ -295,6 +299,10 @@ class Double_Path_UNet3D(nn.Module):
         t2_en4 = self.enc3_t2(t2_en3)
         t2_en5 = self.enc4_t2(t2_en4)
 
+        mid_2 = self._cal_EMA(t1_en2, t2_en2, self.gamma)
+        mid_3 = self._cal_EMA(t1_en3, t2_en3, self.gamma)
+        mid_4 = self._cal_EMA(t1_en4, t2_en4, self.gamma)
+
         en1 = torch.cat((t1_en1, t2_en1), dim=1)
         en2 = torch.cat((t1_en2, t2_en2), dim=1)
         en3 = torch.cat((t1_en3, t2_en3), dim=1)
@@ -309,7 +317,11 @@ class Double_Path_UNet3D(nn.Module):
         out = self.out(mask)
 
         if self.get_pair_feature:
-            return out
+            for i in range(3):
+                self.mid_feature.append(f"mid_{i + 2}")
+                self.t1_feature.append(f"t1_en{i + 2}")
+                self.t2_feature.append(f"t2_en{i + 2}")
+            return out, self.mid_feature, self.t1_feature, self.t2_feature
         else:
             return out
 

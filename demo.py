@@ -2,18 +2,10 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 import einops
 import csv
 import glob
-import argparse
-
-parser = argparse.ArgumentParser(description='Brats')
-parser.add_argument('-m', '--Model', default='UNet3d', type=str,
-                    help='model name')
-parser.add_argument('--PairModel', default=False, type=bool,
-                    help='whether use paired data structure')
-
-args = parser.parse_args()
 
 
 class LinearModel(nn.Module):
@@ -38,7 +30,7 @@ class LinearKernelCKA():
         x = self._build_Linear_Kernel(x)
         y = self._build_Linear_Kernel(y)
         cm = self._build_CM(self.dim)
-        tr = torch.trace(x*cm*y*cm)
+        tr = torch.trace(cm*x*cm*cm*y*cm)
         return torch.mul(tr, 1 / torch.square((self.dim - 1)))
 
     def _build_CM(self, dim):
@@ -58,11 +50,13 @@ class LinearKernelCKA():
 
 
 if __name__ == '__main__':
-    print(args.m)
-    # inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-    # tgts = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-    # inps = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
-    # tgts = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
+    inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
+    tgts = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
+    a = '1024-1024-1024'
+    sizes = [2048] + list(map(int, a.split('-')))
+    
+    # # inps = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
+    # # tgts = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
     # dataset = TensorDataset(inps, tgts)
     # loader = DataLoader(dataset,
     #                     batch_size=5,
@@ -97,11 +91,6 @@ if __name__ == '__main__':
     #         loss = F.binary_cross_entropy_with_logits(log, targets)
     #         loss.backward()
     #         optimizer.step()
-
-
-
-
-
 
     # 全局池化测试
     # pool of square window of size=3, stride=2
