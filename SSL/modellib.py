@@ -68,11 +68,13 @@ class AttGateQuery(nn.Module):
         queue = self._updata_queue(self.deta, se_att, queue)
         output = self._get_att(se_att, queue)
         self.queue = self._squeeze_queue(queue)
+        output = torch.mul(x, output)
         return output
 
     def _get_SE(self, x):
         se = self.Pooling(x)
         se = se.view(-1, self.channels)
+        se = torch.squeeze(se, 0)
         se = self.att(se)
         se = se.view(-1, self.channels, 1, 1, 1)
         return se
@@ -98,6 +100,7 @@ class AttGateQuery(nn.Module):
     def _squeeze_queue(self, queue):
         queue = torch.reshape(queue, (4, -1))
         queue = torch.mean(queue, 1)
+
         return queue
 
 
@@ -196,6 +199,7 @@ class UNet3d(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
+    @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -233,6 +237,7 @@ class AttUNet3d(nn.Module):
         self.dec4 = AttUp(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
+    @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -282,6 +287,7 @@ class Double_Path_UNet3D(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
+    @torch.cuda.amp.autocast()
     def forward(self, t1_Pair, t2_Pair):
         # t1_Feature = self.modelT1(t1_Pair)
         # t2_Feature = self.modelT2(t2_Pair)
@@ -327,7 +333,6 @@ class Double_Path_UNet3D(nn.Module):
 
     def _cal_EMA(x1, x2, gama):
         return x1 + torch.mul(x2, gama)
-
 
 
 if __name__ == '__main__':

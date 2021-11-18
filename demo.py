@@ -6,6 +6,7 @@ import numpy as np
 import einops
 import csv
 import glob
+from SSL import modellib
 
 
 class LinearModel(nn.Module):
@@ -50,23 +51,29 @@ class LinearKernelCKA():
 
 
 if __name__ == '__main__':
-    inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-    tgts = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-    a = '1024-1024-1024'
-    sizes = [2048] + list(map(int, a.split('-')))
-    
-    # # inps = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
-    # # tgts = torch.arange(10 * 2, dtype=torch.float32).view(10, 2)
-    # dataset = TensorDataset(inps, tgts)
-    # loader = DataLoader(dataset,
-    #                     batch_size=5,
-    #                     pin_memory=True,
-    #                     num_workers=2)
+    inps = torch.arange(5 * 4 * 240 * 240 * 155, dtype=torch.float32).view(5, 4, 240, 240, 155)
+    tgts = torch.arange(5 * 4 * 240 * 240 * 155, dtype=torch.float32).view(5, 4, 240, 240, 155)
+    dataset = TensorDataset(inps, tgts)
+    loader = DataLoader(dataset,
+                        batch_size=1,
+                        pin_memory=True,
+                        num_workers=2)
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     #
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #
-    # model = LinearModel()
-    # model.to(device)
+    model = modellib.AttGateQuery(4)
+    model.to(device)
+    for data, target in loader:
+        data = data.to(device)
+        output = model(data)
+
+    net = nn.Linear(2, 2)
+    # 权重矩阵初始化为1
+    nn.init.constant_(net.weight, val=100)
+    nn.init.constant_(net.bias, val=20)
+    optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
+    print(optimizer.state_dict()['param_groups'])
+
     # # query = torch.autograd.Variable(torch.ones(1, 5), requires_grad=True).to(device)
     # for name, para in model.named_parameters():
     #     if name == 'fc1.weight':
