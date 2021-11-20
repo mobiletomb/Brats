@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.nn import MSELoss
 
 from data import get_dataloader
-from metircs_losses import Meter
+from metircs_losses import Meter, NCECriterion
 
 from IPython.display import clear_output
 
@@ -54,12 +54,14 @@ class Trainer:
                  path_to_csv: str,
                  display_plot: bool = False,
                  pair_model: bool = False,
-                 model_name: str = 'Unet3d'
+                 model_name: str = 'Unet3d',
+                 ssl: bool = False
                  ):
 
         """Initialization."""
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.pair_model = pair_model
+        self.ssl = ssl
         self.display_plot = display_plot
         self.net = net.to(self.device)
         self.criterion = criterion
@@ -98,12 +100,24 @@ class Trainer:
             imagesT1 = images['image_t1'].to(self.device)
             imagesT2 = images['image_t2'].to(self.device)
             targets = targets.to(self.device)
-            logits = self.net(imagesT1, imagesT2)
+            if self.ssl:
+                logits, mid, t1, t2 = self.net(imagesT1, imagesT2)
+                ssl_loss = []
+                for i in range(3):
+                    ssl_loss.append(NCECriterion(mid[i])(t1[i]))
+                    ssl_loss.append(NCECriterion(mid[i])(t2[i]))
+                ssl_loss = torch.mean(ssl_loss)
+            else:
+                logits = self.net(imagesT1, imagesT2)
         else:
             images = images.to(self.device)
             targets = targets.to(self.device)
             logits = self.net(images)
-        loss = self.criterion(logits, targets)
+
+        if self.ssl:
+            loss = self.criterion(logits, targets) + ssl_loss
+        else:
+            loss = self.criterion(logits, targets)
         return loss, logits
 
     def _do_epoch(self, epoch: int, phase: str):
@@ -120,7 +134,7 @@ class Trainer:
             if self.pair_model:
                 # images_t1, images_t2, targets = data_batch['image_t1'], data_batch['image_t2'], data_batch['mask']
                 images, targets = data_batch, data_batch['mask']
-            else :
+            else:
                 images, targets = data_batch['image'], data_batch['mask']
 
             # print(f"start cal loss | time: {time.strftime('%H:%M:%S')}")

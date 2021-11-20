@@ -265,10 +265,6 @@ class Double_Path_UNet3D(nn.Module):
         self.t1_feature = []
         self.t2_feature = []
 
-        # self.modelT1 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
-        # self.modelT2 = UNet3d(in_channels=self.in_channels//2, n_classes=self.n_classes, n_channels=self.n_channels, drop_outlayer=True)
-        # self.out = Out(n_channels * 2, n_classes)
-
         self.conv_t1 = DoubleConv(self.paired_channels, self.paired_nchannels)
         self.enc1_t1 = Down(self.paired_nchannels, 2 * self.paired_nchannels)
         self.enc2_t1 = Down(2 * self.paired_nchannels, 4 * self.paired_nchannels)
@@ -289,10 +285,6 @@ class Double_Path_UNet3D(nn.Module):
 
     @torch.cuda.amp.autocast()
     def forward(self, t1_Pair, t2_Pair):
-        # t1_Feature = self.modelT1(t1_Pair)
-        # t2_Feature = self.modelT2(t2_Pair)
-        # merged_Feature = torch.cat((t1_Feature, t2_Feature), dim=1)
-        # out = self.out(merged_Feature)
         t1_en1 = self.conv_t1(t1_Pair)
         t1_en2 = self.enc1_t1(t1_en1)
         t1_en3 = self.enc2_t1(t1_en2)
