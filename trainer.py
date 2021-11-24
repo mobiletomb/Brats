@@ -88,7 +88,7 @@ class Trainer:
         self.losses = {phase: [] for phase in self.phases}
         self.dice_scores = {phase: [] for phase in self.phases}
         self.jaccard_scores = {phase: [] for phase in self.phases}
-        self.summaryWriter = SummaryWriter(f'./tensorboard__logdir/{model_name}/')
+        self.summaryWriter = SummaryWriter(f"./tensorboard__logdir/{model_name}/{time.strftime('%m_%d_%H')}")
         self.best_model_pth = f"best_model_{model_name}.pth"
         self.last_epoch_model_pth = f"last_epoch_model_{model_name}_{time.strftime('%m_%d_%H_%M')}.pth"
         self.log_pth = f"log/train_log_{model_name}_{time.strftime('%m_%d_%H_%M')}.csv"

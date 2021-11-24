@@ -119,15 +119,17 @@ class Down(nn.Module):
 
 class Up(nn.Module):
 
-    def __init__(self, in_channels, out_channels, trilinear=True):
+    def __init__(self, in_channels, out_channels, stride, trilinear=True):
         super().__init__()
 
+        self.stride = stride
         if trilinear:
             self.up = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=True)
         else:
             self.up = nn.ConvTranspose3d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
 
         self.conv = DoubleConv(in_channels, out_channels)
+
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
@@ -199,7 +201,7 @@ class UNet3d(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    @torch.cuda.amp.autocast()
+    # @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -237,7 +239,7 @@ class AttUNet3d(nn.Module):
         self.dec4 = AttUp(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    @torch.cuda.amp.autocast()
+    # @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -283,7 +285,7 @@ class Double_Path_UNet3D(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    @torch.cuda.amp.autocast()
+    # @torch.cuda.amp.autocast()
     def forward(self, t1_Pair, t2_Pair):
         t1_en1 = self.conv_t1(t1_Pair)
         t1_en2 = self.enc1_t1(t1_en1)
@@ -297,9 +299,9 @@ class Double_Path_UNet3D(nn.Module):
         t2_en4 = self.enc3_t2(t2_en3)
         t2_en5 = self.enc4_t2(t2_en4)
 
-        mid_2 = self._cal_EMA(t1_en2, t2_en2, self.gamma)
-        mid_3 = self._cal_EMA(t1_en3, t2_en3, self.gamma)
-        mid_4 = self._cal_EMA(t1_en4, t2_en4, self.gamma)
+        mid_2 = self._get_EMA(t1_en2, t2_en2, self.gamma)
+        mid_3 = self._get_EMA(t1_en3, t2_en3, self.gamma)
+        mid_4 = self._get_EMA(t1_en4, t2_en4, self.gamma)
 
         en1 = torch.cat((t1_en1, t2_en1), dim=1)
         en2 = torch.cat((t1_en2, t2_en2), dim=1)
@@ -323,8 +325,8 @@ class Double_Path_UNet3D(nn.Module):
         else:
             return out
 
-    def _cal_EMA(x1, x2, gama):
-        return x1 + torch.mul(x2, gama)
+    def _get_EMA(self, x, y, gama):
+        return x + torch.mul(y, gama)
 
 
 if __name__ == '__main__':
