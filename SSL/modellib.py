@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import data
-
+from torch.utils.data import TensorDataset, DataLoader
 
 class DoubleConv(nn.Module):
     """(Conv3D -> BN -> ReLU) * 2"""
@@ -119,10 +119,8 @@ class Down(nn.Module):
 
 class Up(nn.Module):
 
-    def __init__(self, in_channels, out_channels, stride, trilinear=True):
+    def __init__(self, in_channels, out_channels, trilinear=True):
         super().__init__()
-
-        self.stride = stride
         if trilinear:
             self.up = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=True)
         else:
@@ -172,19 +170,15 @@ class AttUp(nn.Module):
 class Out(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        # self.conv1 = DoubleConv(in_channels, in_channels // 2)
-        # one layer out
         self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
 
     def forward(self, x):
-        # x = self.conv1(x)
         return self.conv(x)
 
 
 class UNet3d(nn.Module):
-    def __init__(self, in_channels, n_classes, n_channels, drop_outlayer: bool=False):
+    def __init__(self, in_channels, n_classes, n_channels):
         super().__init__()
-        self.drop_outlayer = drop_outlayer
         self.in_channels = in_channels
         self.n_classes = n_classes
         self.n_channels = n_channels
@@ -201,7 +195,6 @@ class UNet3d(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    # @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -213,11 +206,9 @@ class UNet3d(nn.Module):
         mask = self.dec2(mask, x3)
         mask = self.dec3(mask, x2)
         mask = self.dec4(mask, x1)
-        if self.drop_outlayer:
-            return mask
-        else:
-            mask = self.out(mask)
-            return mask
+
+        mask = self.out(mask)
+        return mask
 
 
 class AttUNet3d(nn.Module):
@@ -239,7 +230,6 @@ class AttUNet3d(nn.Module):
         self.dec4 = AttUp(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    # @torch.cuda.amp.autocast()
     def forward(self, x):
         x1 = self.conv(x)
         x2 = self.enc1(x1)
@@ -285,7 +275,6 @@ class Double_Path_UNet3D(nn.Module):
         self.dec4 = Up(2 * n_channels, n_channels)
         self.out = Out(n_channels, n_classes)
 
-    # @torch.cuda.amp.autocast()
     def forward(self, t1_Pair, t2_Pair):
         t1_en1 = self.conv_t1(t1_Pair)
         t1_en2 = self.enc1_t1(t1_en1)
@@ -330,15 +319,22 @@ class Double_Path_UNet3D(nn.Module):
 
 
 if __name__ == '__main__':
+    inps = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+    tgts = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+    dataset = TensorDataset(inps, tgts)
+    loader = DataLoader(dataset,
+                        batch_size=1,
+                        pin_memory=True,
+                        num_workers=2)
+
+    device = 'cpu'
     model = Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24)
-
-    dataloader = data.get_dataloader(dataset=data.BratsDataset, path_to_csv='/home/qlc/Model/BraTs/log/train_data.csv', phase='train', fold=0,
-                                        all_sequence=False)
-    print(len(dataloader))
-
-    data = next(iter(dataloader))
-    print(data['Id'], data['image_t1'].shape, data['image_t2'].shape, data['mask'].shape)
-    out = model(data['image_t1'], data['image_t2'])
-    print(out)
+    model.to(device)
+    for data, target in loader:
+        data = data.to(device)
+        t1 = data[:, :2, :, :, :]
+        t2 = data[:, 2:4, :, :, :]
+        output = model(t1, t2)
+        print(output.shape)
 
 

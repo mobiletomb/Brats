@@ -60,6 +60,7 @@ class Trainer:
 
         """Initialization."""
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print('device:',self.device)
         self.pair_model = pair_model
         self.ssl = ssl
         self.display_plot = display_plot
@@ -79,7 +80,7 @@ class Trainer:
                 phase=phase,
                 fold=fold,
                 batch_size=batch_size,
-                num_workers=8,
+                num_workers=0,
                 all_sequence=(not self.pair_model)
             )
             for phase in self.phases
@@ -121,7 +122,7 @@ class Trainer:
         return loss, logits
 
     def _do_epoch(self, epoch: int, phase: str):
-        print(f"{phase} epoch: {epoch} | time: {time.strftime('%H:%M:%S')}")
+        print(f"{phase} epoch: {epoch+1} | time: {time.strftime('%H:%M:%S')}")
 
         self.net.train() if phase == "train" else self.net.eval()
         meter = Meter()
@@ -148,9 +149,17 @@ class Trainer:
                     self.optimizer.zero_grad()
             # print(f"end on step | time: {time.strftime('%H:%M:%S')}")
             running_loss += loss.item()
-            meter.update(logits.detach().cpu(),
-                         targets.detach().cpu()
+            # print(f"running loss | time: {time.strftime('%H:%M:%S')}")
+            # meter.update(logits.detach().cpu(),
+            #              targets.detach().cpu()
+            #              )
+            print(logits.device)
+            print(targets.device)
+            meter.update(logits.detach().to(self.device),
+                         targets.detach().to(self.device)
                          )
+            # print(f"updated meter | time: {time.strftime('%H:%M:%S')}")
+
 
         epoch_loss = (running_loss * self.accumulation_steps) / total_batches
         epoch_dice, epoch_iou = meter.get_metrics()
@@ -170,9 +179,13 @@ class Trainer:
     def run(self):
 
         for epoch in range(self.num_epochs):
+            print(f"start train | time: {time.strftime('%H:%M:%S')}")
             self._do_epoch(epoch, "train")
+            print(f"end train | time: {time.strftime('%H:%M:%S')}")
             with torch.no_grad():
+                print(f"start val | time: {time.strftime('%H:%M:%S')}")
                 val_loss = self._do_epoch(epoch, "val")
+                print(f"end val | time: {time.strftime('%H:%M:%S')}")
                 self.scheduler.step(val_loss)
             if self.display_plot:
                 self._plot_train_history()

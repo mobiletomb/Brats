@@ -132,6 +132,25 @@ class BCEDiceLoss(nn.Module):
         return bce_loss + dice_loss
 
 
+class SSLBCEDiceLoss(nn.Module):
+    """Compute objective loss: BCE loss + DICE loss."""
+
+    def __init__(self):
+        super(SSLBCEDiceLoss, self).__init__()
+        self.bce = nn.BCEWithLogitsLoss()
+        self.dice = DiceLoss()
+        self.ssl = NCESoftmaxLoss()
+
+    def forward(self,
+                logits: torch.Tensor,
+                targets: torch.Tensor) -> torch.Tensor:
+        assert (logits.shape == targets.shape)
+        dice_loss = self.dice(logits, targets)
+        bce_loss = self.bce(logits, targets)
+        ssl_loss = self.ssl(logits)
+        return bce_loss + dice_loss + ssl_loss
+
+
 # helper functions for testing.
 def dice_coef_metric_per_classes(probabilities: np.ndarray,
                                  truth: np.ndarray,
@@ -238,7 +257,7 @@ class NCESoftmaxLoss(nn.Module):
     def forward(self, x):
         bsz = x.shape[0]
         x = x.squeeze()
-        label = torch.zeros([bsz]).cuda().long()
+        label = torch.zeros([bsz]).cpu().long()
         loss = self.criterion(x, label)
         return loss
 
@@ -253,7 +272,7 @@ class NCEKLLoss(nn.Module):
         bsz = x.shape[0]
         x = x.squeeze()
         x = nn.functional.log_sofmax(x, dim=1)
-        label = torch.zeros([bsz]).cuda().long()
+        label = torch.zeros([bsz]).cpu().long()
         loss = self.criterion(x, label)
         return loss
 
@@ -292,8 +311,19 @@ class BarlowTwins(nn.Module):
         loss = on_diag + self.args.lambd * off_diag
         return loss
 
+
 def off_diagonal(x):
     # return a flattened view of the off-diagonal elements of a square matrix
     n, m = x.shape
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+
+
+if __name__ == "__main__":
+    inps = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+    tar = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+
+    cri = NCESoftmaxLoss()
+    loss = cri(inps)
+    print(loss)
+

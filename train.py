@@ -14,17 +14,13 @@ parser.add_argument('--paired', default=False, type=bool, help='' )
 
 
 args = parser.parse_args()
-
 model_name = args.Model
+
 if model_name == 'UNet3d':
     model = modelib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 elif model_name == 'Double_path_UNet3D':
     model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
     args.paired = True
-elif model_name == "AttUNet3d":
-    model = modelib.AttUNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
-elif model_name == "AttQueryUNet3d":
-    model = modelib.AttQueryUNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 elif model_name == "Double_path_UNet3D_contrastive":
     model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24, get_pair_feature=True).to('cuda')
     args.paired = True
@@ -40,20 +36,20 @@ trainer = trainer.Trainer(net=model,
                           fold=0,
                           num_epochs=args.epoch,
                           path_to_csv=config.config.path_to_csv,
-                          pair_model=args.paired
+                          pair_model=args.paired,
+                          ssl=False
                           )
 
+# if config.config.pretrained_model_path is not None:
+#     # trainer.load_predtrain_model(config.config.pretrained_model_path)
+#
+#     # if need - load the logs.
+#     train_logs = pd.read_csv(config.config.train_logs_path)
+#     trainer.losses["train"] = train_logs.loc[:, "train_loss"].to_list()
+#     trainer.losses["val"] = train_logs.loc[:, "val_loss"].to_list()
+#     trainer.dice_scores["train"] = train_logs.loc[:, "train_dice"].to_list()
+#     trainer.dice_scores["val"] = train_logs.loc[:, "val_dice"].to_list()
+#     trainer.jaccard_scores["train"] = train_logs.loc[:, "train_jaccard"].to_list()
 
-trainer.run()
-
-if config.config.pretrained_model_path is not None:
-    # trainer.load_predtrain_model(config.config.pretrained_model_path)
-
-    # if need - load the logs.
-    train_logs = pd.read_csv(config.config.train_logs_path)
-    trainer.losses["train"] = train_logs.loc[:, "train_loss"].to_list()
-    trainer.losses["val"] = train_logs.loc[:, "val_loss"].to_list()
-    trainer.dice_scores["train"] = train_logs.loc[:, "train_dice"].to_list()
-    trainer.dice_scores["val"] = train_logs.loc[:, "val_dice"].to_list()
-    trainer.jaccard_scores["train"] = train_logs.loc[:, "train_jaccard"].to_list()
-
+if __name__ == "__main__":
+    trainer.run()

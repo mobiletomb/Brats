@@ -72,11 +72,19 @@ if __name__ == '__main__':
     # nn.init.constant_(net.bias, val=20)
     # optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
     # print(optimizer.state_dict()['param_groups'])
-    for i in range(3):
-        loss = []
-        for j in range(3):
-            loss.append(j)
-        print(loss)
+    # for i in range(3):
+    #     loss = []
+    #     for j in range(3):
+    #         loss.append(j)
+    #     print(loss)
+    total = torch.randn((8,8))
+    print(total)
+    a = torch.nn.LogSoftmax(dim=1)
+    x = a(total)
+    print(x)
+    x = torch.diag(x)
+    x = torch.sum(x)
+    print(x)
     # # query = torch.autograd.Variable(torch.ones(1, 5), requires_grad=True).to(device)
     # for name, para in model.named_parameters():
     #     if name == 'fc1.weight':
