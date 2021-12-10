@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.nn import MSELoss
 
 from data import get_dataloader
-from metircs_losses import Meter, NCECriterion
+from metircs_losses import Meter, NCECriterion, BarlowTwins
 
 from IPython.display import clear_output
 
@@ -60,7 +60,6 @@ class Trainer:
 
         """Initialization."""
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print('device:',self.device)
         self.pair_model = pair_model
         self.ssl = ssl
         self.display_plot = display_plot
@@ -94,6 +93,7 @@ class Trainer:
         self.last_epoch_model_pth = f"last_epoch_model_{model_name}_{time.strftime('%m_%d_%H_%M')}.pth"
         self.log_pth = f"log/train_log_{model_name}_{time.strftime('%m_%d_%H_%M')}.csv"
 
+
     def _compute_loss_and_outputs(self,
                                   images: torch.Tensor,
                                   targets: torch.Tensor):
@@ -102,12 +102,13 @@ class Trainer:
             imagesT2 = images['image_t2'].to(self.device)
             targets = targets.to(self.device)
             if self.ssl:
-                logits, mid, t1, t2 = self.net(imagesT1, imagesT2)
-                ssl_loss = []
-                for i in range(3):
-                    ssl_loss.append(NCECriterion(mid[i])(t1[i]))
-                    ssl_loss.append(NCECriterion(mid[i])(t2[i]))
-                ssl_loss = torch.mean(ssl_loss)
+                pass
+                # logits, mid, t1, t2 = self.net(imagesT1, imagesT2)
+                # ssl_loss = []
+                # for i in range(3):
+                #     ssl_loss.append(BarlowTwins(y1=mid[i], y2=t1[i]))
+                #     ssl_loss.append(BarlowTwins(mid[i], t2[i]))
+                # ssl_loss = torch.mean(ssl_loss)
             else:
                 logits = self.net(imagesT1, imagesT2)
         else:
@@ -116,9 +117,11 @@ class Trainer:
             logits = self.net(images)
 
         if self.ssl:
-            loss = self.criterion(logits, targets) + ssl_loss
+            pass
+            # loss = self.criterion(logits, targets) + ssl_loss
         else:
             loss = self.criterion(logits, targets)
+
         return loss, logits
 
     def _do_epoch(self, epoch: int, phase: str):
@@ -150,14 +153,14 @@ class Trainer:
             # print(f"end on step | time: {time.strftime('%H:%M:%S')}")
             running_loss += loss.item()
             # print(f"running loss | time: {time.strftime('%H:%M:%S')}")
-            # meter.update(logits.detach().cpu(),
-            #              targets.detach().cpu()
-            #              )
-            print(logits.device)
-            print(targets.device)
-            meter.update(logits.detach().to(self.device),
-                         targets.detach().to(self.device)
+            meter.update(logits.detach().cpu(),
+                         targets.detach().cpu()
                          )
+            # print(f"start trans targets form cpu to gpu | time: {time.strftime('%H:%M:%S')}")
+            # meter.update(logits.detach(),
+            #              targets.detach().to(self.device)
+            #              )
+
             # print(f"updated meter | time: {time.strftime('%H:%M:%S')}")
 
 
@@ -179,13 +182,13 @@ class Trainer:
     def run(self):
 
         for epoch in range(self.num_epochs):
-            print(f"start train | time: {time.strftime('%H:%M:%S')}")
+            # print(f"start train | time: {time.strftime('%H:%M:%S')}")
             self._do_epoch(epoch, "train")
-            print(f"end train | time: {time.strftime('%H:%M:%S')}")
+            # print(f"end train | time: {time.strftime('%H:%M:%S')}")
             with torch.no_grad():
-                print(f"start val | time: {time.strftime('%H:%M:%S')}")
+                # print(f"start val | time: {time.strftime('%H:%M:%S')}")
                 val_loss = self._do_epoch(epoch, "val")
-                print(f"end val | time: {time.strftime('%H:%M:%S')}")
+                # print(f"end val | time: {time.strftime('%H:%M:%S')}")
                 self.scheduler.step(val_loss)
             if self.display_plot:
                 self._plot_train_history()

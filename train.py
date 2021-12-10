@@ -19,10 +19,15 @@ model_name = args.Model
 if model_name == 'UNet3d':
     model = modelib.UNet3d(in_channels=4, n_classes=3, n_channels=24).to('cuda')
 elif model_name == 'Double_path_UNet3D':
-    model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
+    model = modelib.Double_Path_UNet3D(in_channels=4,
+                                       n_classes=3,
+                                       n_channels=24).to('cuda')
     args.paired = True
 elif model_name == "Double_path_UNet3D_contrastive":
-    model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24, get_pair_feature=True).to('cuda')
+    model = modelib.Double_Path_UNet3D(in_channels=4,
+                                       n_classes=3,
+                                       n_channels=24,
+                                       get_pair_feature=True).to('cuda')
     args.paired = True
 
 # model = modelib.Double_Path_UNet3D(in_channels=4, n_classes=3, n_channels=24).to('cuda')
