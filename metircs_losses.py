@@ -252,14 +252,17 @@ class NCESoftmaxLoss(nn.Module):
 
     def __init__(self):
         super(NCESoftmaxLoss, self).__init__()
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.LogSoftmax()
 
-    def forward(self, x):
-        bsz = x.shape[0]
-        x = x.squeeze()
-        label = torch.zeros([bsz]).cpu().long()
-        loss = self.criterion(x, label)
-        return loss
+    def forward(self, x, pred, nce):
+        """
+        :param x: shape[B, C, H, W, Z]
+        :param pred: shape[B, C, H, W, Z]
+        :return: NCELoss
+        """
+        total = torch.mm(x, pred.permute((1, 0)))
+        nce += torch.sum(torch.diag(self.criterion(total)))
+        return nce
 
 
 class NCEKLLoss(nn.Module):
@@ -278,22 +281,29 @@ class NCEKLLoss(nn.Module):
 
 
 class BarlowTwins(nn.Module):
-    def __init__(self, args):
+    def __init__(self,
+                 hidden_dim=('2048-4096-4096-2048'),
+                 batch_size=1,
+                 lambd=0.00051,
+                 temp=0.001):
         super().__init__()
-        self.args = args
-
+        self.hidden = hidden_dim
+        self.batch_size = batch_size
+        self.lambd = lambd
+        self.temp = temp
         # projector
-        sizes = [2048] + list(map(int, args.projector.split('-')))
+        sizes = [2048] + list(map(int, hidden_dim.split('-')))
         layers = []
         for i in range(len(sizes) - 2):
+            print(i)
             layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=False))
-            layers.append(nn.BatchNorm1d(sizes[i + 1]))
+            layers.append(nn.LayerNorm(sizes[i + 1]))
             layers.append(nn.ReLU(inplace=True))
         layers.append(nn.Linear(sizes[-2], sizes[-1], bias=False))
         self.projector = nn.Sequential(*layers)
 
         # normalization layer for the representations z1 and z2
-        self.bn = nn.BatchNorm1d(sizes[-1], affine=False)
+        self.bn = nn.LayerNorm(sizes[-1])
 
     def forward(self, y1, y2):
         z1 = self.projector(y1)
@@ -303,13 +313,14 @@ class BarlowTwins(nn.Module):
         c = self.bn(z1).T @ self.bn(z2)
 
         # sum the cross-correlation matrix between all gpus
-        c.div_(self.args.batch_size)
+        c.div_(self.batch_size)
 
         on_diag = torch.diagonal(c).add_(-1).pow_(2).sum()
         off_diag = off_diagonal(c).pow_(2).sum()
-        loss = on_diag + self.args.lambd * off_diag
-        return loss
-
+        print(on_diag)
+        print(off_diag)
+        loss = on_diag + self.lambd * off_diag
+        return loss * self.temp
 
 def off_diagonal(x):
     # return a flattened view of the off-diagonal elements of a square matrix
@@ -319,10 +330,14 @@ def off_diagonal(x):
 
 
 if __name__ == "__main__":
-    inps = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
-    tar = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+    # inps = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
+    # tar = torch.arange(1 * 4 * 240 * 240 * 155, dtype=torch.float32).view(1, 4, 240, 240, 155)
 
-    cri = NCESoftmaxLoss()
-    loss = cri(inps)
-    print(loss)
+    inps = torch.randn(1 * 4 * 2048, dtype=torch.float32).view(4, 2048)
+    tar = torch.randn(1 * 2048 * 4, dtype=torch.float32).view(2048, 4)
+    c = torch.mm(inps, tar)
+    print(c.shape)
+    # cri = BarlowTwins()
+    # loss = cri(inps, tar)
+    # print(loss.detach().numpy())
 

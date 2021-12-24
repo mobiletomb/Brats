@@ -1,5 +1,5 @@
 import trainer
-import SSL.modellib as modelib
+import modellib as modelib
 import config
 import metircs_losses
 import pandas as pd

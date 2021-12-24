@@ -1,25 +1,12 @@
 import os
-
-import numpy as np
 import pandas as pd
-
-from sklearn.model_selection import StratifiedKFold
-
 import nibabel as nib
-
-import matplotlib.pyplot as plt
-
 from skimage.transform import resize
-from skimage.util import montage
-import torch
 from torchvision import transforms as T
 from torch.utils.data import Dataset, DataLoader
-
 from albumentations import Compose, HorizontalFlip, CenterCrop
-
 from config import *
 
-from einops import rearrange
 
 class BratsDataset(Dataset):
     def __init__(self,
@@ -33,7 +20,7 @@ class BratsDataset(Dataset):
         self.all_sequence = all_sequence
 
         if self.with_drop:
-            self.df = df.sample(frac=self.frac).sort_index()
+            self.df = df.sample(frac=frac).sort_index()
         else:
             self.df = df
 
@@ -44,9 +31,7 @@ class BratsDataset(Dataset):
             self.data_types_t2 = ['_flair.nii.gz', '_t2.nii.gz']
         self.phase = phase
         self.augmentations = get_augmentations(phase)
-        self.data_types = ['_flair.nii.gz', '_t1.nii.gz', '_t1ce.nii.gz', '_t2.nii.gz']
         self.is_resize = is_resize
-        self.frac = frac
 
     def __len__(self):
         return self.df.shape[0]
@@ -86,7 +71,6 @@ class BratsDataset(Dataset):
                 images_t1.append(img_t1)
                 images_t2.append(img_t2)
 
-
             img_t1 = np.stack(images_t1)
             img_t2 = np.stack(images_t2)
 
@@ -104,11 +88,14 @@ class BratsDataset(Dataset):
             mask = self.prepocess_mask_labels(mask)
 
             if self.all_sequence:
-                augmented = self.augmentations(image=img.astype(np.float32), mask=mask.astype(np.float32))
+                augmented = self.augmentations(image=img.astype(np.float32),
+                                               mask=mask.astype(np.float32))
                 img = augmented['image']
                 mask = augmented['mask']
             else:
-                augmented = self.augmentations(image_t1=img_t1.astype(np.float32), image_t2=img_t2.astype(np.float32), mask=mask.astype(np.float32))
+                augmented = self.augmentations(image_t1=img_t1.astype(np.float32),
+                                               image_t2=img_t2.astype(np.float32),
+                                               mask=mask.astype(np.float32))
                 img_t1 = augmented['image_t1']
                 img_t2 = augmented['image_t2']
                 mask = augmented['mask']
@@ -168,7 +155,10 @@ class BratsDataset(Dataset):
 
 
 def get_augmentations(phase):
-    list_transforms = []
+    list_transforms = [T.RandomCrop,
+                       T.RandomHorizontalFlip,
+                       T.RandomErasing,
+                       T.RandomRotation]
     list_trfms = Compose(list_transforms)
     return list_trfms
 
@@ -188,7 +178,12 @@ def get_dataloader(
     val_df = df.loc[df['fold'] == fold].reset_index(drop=True)
 
     df = train_df if phase == 'train' else val_df
-    dataset = dataset(df, phase, is_resize=False, with_drop=with_drop, frac=0.2, all_sequence=all_sequence)
+    dataset = dataset(df,
+                      phase,
+                      is_resize=False,
+                      with_drop=with_drop,
+                      frac=0.2,
+                      all_sequence=all_sequence)
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -200,7 +195,11 @@ def get_dataloader(
 
 
 if __name__ == '__main__':
-    dataloader = get_dataloader(dataset=BratsDataset, path_to_csv='log/train_data.csv', phase='train', fold=0, all_sequence=False)
+    dataloader = get_dataloader(dataset=BratsDataset,
+                                path_to_csv='log/train_data.csv',
+                                phase='train',
+                                fold=0,
+                                all_sequence=False)
     print(len(dataloader))
 
     data = next(iter(dataloader))

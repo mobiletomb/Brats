@@ -6,7 +6,7 @@ import numpy as np
 import einops
 import csv
 import glob
-from SSL import modellib
+import modellib
 
 
 class LinearModel(nn.Module):
@@ -77,6 +77,7 @@ if __name__ == '__main__':
         for j in range(3):
             loss.append(j)
         print(loss)
+
 
 
 

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import data
 from torch.utils.data import TensorDataset, DataLoader
+import attention
 
 class DoubleConv(nn.Module):
     """(Conv3D -> BN -> ReLU) * 2"""
@@ -23,85 +23,6 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.double_conv(x)
-
-
-class AttGate(nn.Module):
-
-    def __init__(self, channels, ratio=8):
-        super().__init__()
-        self.channels = channels
-        self.pooling = nn.AdaptiveAvgPool3d(1)
-        self.att = nn.Sequential(
-            nn.Linear(self.channels, self.channels // ratio),
-            nn.Linear(self.channels // ratio, self.channels),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        att = self.pooling(x)
-        att = att.view(-1, self.channels)
-        att = self.att(att)
-        att = att.view(-1, self.channels, 1, 1, 1)
-        output = torch.mul(x, att)
-        return output
-
-
-class AttGateQuery(nn.Module):
-
-    def __init__(self, channels, ratio=8, deta=0.5):
-        super().__init__()
-        self.channels = channels
-        self.Pooling = nn.AdaptiveAvgPool3d(1)
-        self.att = nn.Sequential(
-            nn.Linear(channels, channels // ratio),
-            nn.Linear(channels // ratio, channels)
-        )
-
-        self.register_buffer('queue', torch.rand(4))
-        # self.queue = torch.nn.Parameter(torch.rand(4))
-        self.deta = deta
-
-    def forward(self, x):
-        queue = self._excite_queue()
-        se_att = self._get_SE(x)
-        queue = self._expand_queue_to_5dim(queue, se_att)
-        queue = self._updata_queue(self.deta, se_att, queue)
-        output = self._get_att(se_att, queue)
-        self.queue = self._squeeze_queue(queue)
-        output = torch.mul(x, output)
-        return output
-
-    def _get_SE(self, x):
-        se = self.Pooling(x)
-        se = se.view(-1, self.channels)
-        se = torch.squeeze(se, 0)
-        se = self.att(se)
-        se = se.view(-1, self.channels, 1, 1, 1)
-        return se
-
-    def _get_att(self, se_att, queue):
-        att = torch.mul(se_att, queue)
-        return att
-
-    def _expand_queue_to_5dim(self, queue, se_att):
-        expanded_queue = torch.reshape(queue, (se_att.shape[0], queue.shape[0], 1, 1, 1))
-        return expanded_queue
-
-    def _updata_queue(self, deta, se_att, queue):
-        up_queue = deta * se_att + (1 - deta) * queue
-        return up_queue
-
-    def _excite_queue(self):
-        excited_queue = torch.unsqueeze(self.queue, 1)
-        excited_queue = excited_queue.repeat(1, int(self.channels / 4))
-        excited_queue = excited_queue.view(-1)
-        return excited_queue
-
-    def _squeeze_queue(self, queue):
-        queue = torch.reshape(queue, (4, -1))
-        queue = torch.mean(queue, 1)
-
-        return queue
 
 
 class Down(nn.Module):
@@ -141,6 +62,15 @@ class Up(nn.Module):
         return self.conv(x)
 
 
+class Out(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        return self.conv(x)
+
+
 class AttUp(nn.Module):
 
     def __init__(self, in_channels, out_channels, trilinear=True):
@@ -152,7 +82,7 @@ class AttUp(nn.Module):
             self.up = nn.ConvTranspose3d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
 
         self.conv = DoubleConv(in_channels, out_channels)
-        self.att = AttGate(in_channels)
+        self.att = attention.AttGate(in_channels)
 
     def forward(self, x1, x2):
         x1 = self.up(x1)
@@ -164,15 +94,6 @@ class AttUp(nn.Module):
 
         x = torch.cat([x2, x1], dim=1)
         x = self.att(x)
-        return self.conv(x)
-
-
-class Out(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size=1)
-
-    def forward(self, x):
         return self.conv(x)
 
 
